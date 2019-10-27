@@ -50,13 +50,25 @@ class MBankPLParser(CsvStatementParser):
             return None
 
         sl = super(MBankPLParser, self).parse_record(line)
-        sl.date_user = datetime.strptime(sl.date_user, self.date_format)
 
-        # account number and name
-        sl.memo = re.sub("\s+", " ", ' '.join([line[5].strip("'"), line[4]]))
+        title, date_user = self.parse_title(line[3])
+        if date_user:
+            sl.date_user = datetime.strptime(date_user, self.date_format)
 
-        # type - description
-        sl.payee = re.sub("\s+", " ", ' - '.join(line[2:4]))
+        payee = ' '.join(line[4].split())
+        if not re.search('[a-zA-Z]', payee):
+            payee = None
+
+        memo = ' '.join(line[2].split())
+
+        sl.payee = payee or title or memo
+        account_number = line[5].strip("'")
+        if account_number:
+            sl.payee = ' - '.join([sl.payee, account_number])
+
+        sl.memo = memo if payee or title else ''
+        if payee and title:
+            sl.memo = ' - '.join([sl.memo, title])
 
         # generate transaction id out of available data
         sl.id = statement.generate_transaction_id(sl)
@@ -107,3 +119,20 @@ class MBankPLParser(CsvStatementParser):
         self.last_line = line
 
         return None
+
+    def parse_title(self, title):
+        title = ' '.join(title.strip().split())
+        title, *date = title.split(' DATA TRANSAKCJI: ')
+        date = date[0][:10] if date else None
+        return self.clean_title(title), date
+
+    def clean_title(self, title):
+        title = title.strip()
+        if title.endswith('('):
+            title = title[:-1].strip()
+        if '/' in title:
+            title = ''.join(title.split('/')[:-1])
+        title = ' '.join(title.split())
+        if not re.search('[a-zA-Z]', title):
+            return None
+        return title
