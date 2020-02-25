@@ -37,7 +37,6 @@ class MBankPLParser(CsvStatementParser):
         return csv.reader(self.fin, delimiter=';', quotechar='"')
 
     def parse_record(self, line):
-
         if self.parsing_header:
             return self.parse_header(line)
 
@@ -52,8 +51,9 @@ class MBankPLParser(CsvStatementParser):
         sl = super(MBankPLParser, self).parse_record(line)
 
         title, date_user = self.parse_title(line[3])
-        if date_user:
-            sl.date_user = datetime.strptime(date_user, self.date_format)
+
+        date_user = date_user or sl.date_user
+        sl.date_user = datetime.strptime(date_user, self.date_format)
 
         payee = ' '.join(line[4].split())
         if not re.search('[a-zA-Z]', payee):
@@ -136,3 +136,12 @@ class MBankPLParser(CsvStatementParser):
         if not re.search('[a-zA-Z]', title):
             return None
         return title
+
+
+# class MBankPLParserCustom(MBankPLParser):
+
+#     def parse_record(self, line):
+#         sl = super().parse_record(line)
+#         if sl:
+#             sl.date, sl.date_user = sl.date_user, sl.date
+#         return sl
